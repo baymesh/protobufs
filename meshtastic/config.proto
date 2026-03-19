@@ -24,10 +24,8 @@ message Config {
        * Technical Details: Default Role
        */
       CLIENT = 0;
-      /*
-       *  Description: Device that does not forward packets from other devices.
-       */
-      CLIENT_MUTE = 1;
+
+      reserved 1, 3, 4, 7, 8, 9, 10, 11, 12;
 
       /*
        * Description: Infrastructure node for extending network coverage by relaying messages. Visible in Nodes list.
@@ -36,21 +34,6 @@ message Config {
        *   This mode may still potentially have higher power usage due to it's preference in message rebroadcasting on the mesh.
        */
       ROUTER = 2;
-
-      /*
-       * Description: Combination of both ROUTER and CLIENT. Not for mobile devices.
-       * Deprecated in v2.3.15 because improper usage is impacting public meshes: Use ROUTER or CLIENT instead.
-       */
-
-      ROUTER_CLIENT = 3 [deprecated = true];
-
-      /*
-       * Description: Infrastructure node for extending network coverage by relaying messages with minimal overhead. Not visible in Nodes list.
-       * Technical Details: Mesh packets will simply be rebroadcasted over this node. Nodes configured with this role will not originate NodeInfo, Position, Telemetry
-       *   or any other packet type. They will simply rebroadcast any mesh packets on the same frequency, channel num, spread factor, and coding rate.
-       * Deprecated in v2.7.11 because it creates "holes" in the mesh rebroadcast chain.
-       */
-      REPEATER = 4 [deprecated = true];
 
       /*
        * Description: Broadcasts GPS position packets as priority.
@@ -69,54 +52,39 @@ message Config {
       SENSOR = 6;
 
       /*
-       * Description: Optimized for ATAK system communication and reduces routine broadcasts.
-       * Technical Details: Used for nodes dedicated for connection to an ATAK EUD.
-       *    Turns off many of the routine broadcasts to favor CoT packet stream
-       *    from the Meshtastic ATAK plugin -> IMeshService -> Node
+       * Description: Like CLIENT but mute (won't rebroadcast)
        */
-      TAK = 7;
+      CLIENT_MUTE = 13;
 
       /*
-       * Description: Device that only broadcasts as needed for stealth or power savings.
-       * Technical Details: Used for nodes that "only speak when spoken to"
-       *    Turns all of the routine broadcasts but allows for ad-hoc communication
-       *    Still rebroadcasts, but with local only rebroadcast mode (known meshes only)
-       *    Can be used for clandestine operation or to dramatically reduce airtime / power consumption
+       * Description: Device running TAK (Team Awareness Kit)
        */
-      CLIENT_HIDDEN = 8;
+      TAK = 14;
 
       /*
-       * Description: Broadcasts location as message to default channel regularly for to assist with device recovery.
-       * Technical Details: Used to automatically send a text message to the mesh
-       *    with the current position of the device on a frequent interval:
-       *    "I'm lost! Position: lat / long"
+       * Description: Device running TAK in tracker mode
        */
-      LOST_AND_FOUND = 9;
+      TAK_TRACKER = 15;
 
       /*
-       * Description: Enables automatic TAK PLI broadcasts and reduces routine broadcasts.
-       * Technical Details: Turns off many of the routine broadcasts to favor ATAK CoT packet stream
-       *    and automatic TAK PLI (position location information) broadcasts.
-       *    Uses position module configuration to determine TAK PLI broadcast interval.
+       * Description: Like CLIENT but hidden from node list
        */
-      TAK_TRACKER = 10;
+      CLIENT_HIDDEN = 16;
 
       /*
-       * Description: Will always rebroadcast packets, but will do so after all other modes.
-       * Technical Details: Used for router nodes that are intended to provide additional coverage
-       *    in areas not already covered by other routers, or to bridge around problematic terrain,
-       *    but should not be given priority over other routers in order to avoid unnecessaraily
-       *    consuming hops.
+       * Description: Lost and found node - allows marking devices as lost
        */
-      ROUTER_LATE = 11;
+      LOST_AND_FOUND = 17;
 
       /*
-       * Description: Treats packets from or to favorited nodes as ROUTER_LATE, and all other packets as CLIENT.
-       * Technical Details: Used for stronger attic/roof nodes to distribute messages more widely
-       *    from weaker, indoor, or less-well-positioned nodes. Recommended for users with multiple nodes
-       *    where one CLIENT_BASE acts as a more powerful base station, such as an attic/roof node.
+       * Description: Infrastructure node with client capabilities
        */
-      CLIENT_BASE = 12;
+      ROUTER_LATE = 18;
+
+      /*
+       * Description: Base client - can be used for home automation
+       */
+      CLIENT_BASE = 19;
     }
 
     /*
@@ -262,6 +230,14 @@ message Config {
      * Defaults to ENABLED
      */
     BuzzerMode buzzer_mode = 13;
+
+    /*
+     * Default relay node for direct messages (DMs).
+     * When sending a DM, the packet will be directed through this node as the relay.
+     * Set to 0 to disable (default behavior - direct path).
+     * This allows controlling which node rebroadcasts your DMs.
+     */
+    fixed32 dm_relay_node = 14;
   }
 
   /*
@@ -1063,6 +1039,13 @@ message Config {
     uint32 hop_limit = 8;
 
     /*
+     * Maximum number of hops for broadcast messages (position, telemetry, etc.).
+     * Broadcast packets received with a higher hop count will be scaled down to this value.
+     * Default of 3.
+     */
+    uint32 broadcast_hop_limit = 16;
+
+    /*
      * Disable TX from the LoRa radio. Useful for hot-swapping antennas and other tests.
      * Defaults to false
      */
@@ -1229,5 +1212,60 @@ message Config {
     SecurityConfig security = 8;
     SessionkeyConfig sessionkey = 9;
     DeviceUIConfig device_ui = 10;
+
+    /*
+     * Mesh Control configuration
+     */
+    MeshControlConfig mesh_control = 11;
+  }
+
+  /*
+   * Mesh Control allows a trusted mesh administrator to broadcast signed configuration
+   * updates that participating nodes will automatically apply.
+   * Nodes must opt-in by configuring the controller's shared key and setting an accept policy.
+   */
+  message MeshControlConfig {
+    /*
+     * 32-byte shared key used to authenticate incoming mesh control packets.
+     * Only nodes configured with this key will accept and validate control commands.
+     * Distribute out-of-band (e.g. via QR code) to trusted node operators.
+     * Keep this key secret from untrusted users; anyone with it can issue control commands.
+     */
+    bytes control_key = 1;
+
+    /*
+     * How the node reacts when it receives a validated mesh control packet.
+     */
+    enum AcceptPolicy {
+      /* Reject all mesh control packets (default - opt-in required). */
+      DISABLED = 0;
+      /* Deliver a ClientNotification to the connected app and wait for explicit user approval. */
+      PROMPT = 1;
+      /* Automatically apply validated settings without user interaction. */
+      AUTO = 2;
+    }
+    AcceptPolicy accept_policy = 2;
+
+    /*
+     * Minimum seconds that must elapse between two accepted control packets.
+     * Prevents rapid replay of valid (but old) control packets.
+     * Default 60 s.  Set to 0 to disable.
+     */
+    uint32 min_interval_secs = 3;
+
+    /* Allow mesh control to modify LoRa / radio parameters (preset, frequency, channel). */
+    bool allow_lora_config = 4;
+
+    /* Allow mesh control to modify directed-message and broadcast hop limits. */
+    bool allow_hop_limits = 5;
+
+    /* Allow mesh control to modify the position broadcast interval. */
+    bool allow_position_interval = 6;
+
+    /* Allow mesh control to modify the device telemetry broadcast interval. */
+    bool allow_telemetry_interval = 7;
+
+    /* Allow mesh control to modify the node-info broadcast interval. */
+    bool allow_node_info_interval = 8;
   }
 }

@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package meshtastic;
+
+import "meshtastic/config.proto";
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "MeshControlProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * Settings payload carried inside a MeshControlPacket.
+ * All fields are optional; set a field to change it, omit it to leave it unchanged.
+ * Use proto3 optional so the firmware can distinguish "not set" from 0.
+ */
+message MeshControlSettings {
+  /* Switch to this LoRa modem preset (omit to leave unchanged). */
+  optional Config.LoRaConfig.ModemPreset modem_preset = 1;
+
+  /* Override the transmit frequency in MHz (0.0 = no override, clear override). */
+  optional float override_frequency = 2;
+
+  /* Channel number to use (0 = hash-based default; omit to leave unchanged). */
+  optional uint32 channel_num = 3;
+
+  /* Directed-message hop limit (0–64; 0 means leave unchanged). */
+  optional uint32 hop_limit = 4;
+
+  /* Broadcast hop limit (0–64; 0 means leave unchanged). */
+  optional uint32 broadcast_hop_limit = 5;
+
+  /* Position broadcast interval in seconds (0 = leave unchanged). */
+  optional uint32 position_broadcast_secs = 10;
+
+  /* Device telemetry broadcast interval in seconds (0 = leave unchanged). */
+  optional uint32 device_telemetry_interval = 11;
+
+  /* Node-info broadcast interval in seconds (0 = leave unchanged). */
+  optional uint32 node_info_broadcast_secs = 12;
+}
+
+/*
+ * A signed configuration update broadcast by a mesh administrator.
+ * Participating nodes verify the HMAC using their configured mesh_control_key,
+ * check the seq_num for freshness, and apply MeshControlSettings if their
+ * accept policy allows it.
+ *
+ * Sent on portnum MESH_CONTROL_APP as a broadcast or directed packet.
+ * The packet is NOT encrypted at the LoRa layer (so it can reach any node),
+ * but is authenticated via HMAC-SHA256 with the shared control_key.
+ */
+message MeshControlPacket {
+  /*
+   * Human-readable name of the mesh network this command belongs to.
+   * Allows a node to ignore commands from unrelated mesh networks even if
+   * they happen to know the key.
+   */
+  string mesh_name = 1;
+
+  /*
+   * Public key of the mesh controller (informational, for discovery).
+   * This is NOT used for cryptographic authentication (the hmac field handles that).
+   * Nodes display this to help operators confirm the correct administrator.
+   */
+  bytes controller_public_key = 2;
+
+  /*
+   * Destination node number.  0 = broadcast to all participating nodes.
+   * A non-zero value targets a specific node (useful for per-node tuning).
+   */
+  uint32 dest_node = 3;
+
+  /*
+   * How many seconds after receiving this packet to wait before applying
+   * the settings.  Use this to give the whole mesh time to receive the packet
+   * before any node changes its radio parameters.
+   * 0 = apply immediately.
+   */
+  uint32 activation_delay_secs = 4;
+
+  /* The configuration changes to apply. */
+  MeshControlSettings settings = 6;
+
+  /*
+   * Monotonically increasing sequence number (typically a Unix timestamp from
+   * the controller's clock).  Nodes reject packets whose seq_num is not
+   * greater than the last accepted seq_num, preventing replay attacks.
+   */
+  uint32 seq_num = 7;
+
+  /*
+   * First 16 bytes of HMAC-SHA256( control_key, canonical_bytes(packet without this field) ).
+   * Provides message authentication: only the holder of control_key can produce a valid HMAC.
+   */
+  bytes hmac = 8;
+
+  /* Protocol version string (e.g. "1.0") for forward compatibility. */
+  string version = 9;
+}
