@@ -82,6 +82,11 @@ message AdminMessage {
      * device-ui config
      */
     DEVICEUI_CONFIG = 9;
+
+    /*
+     * Mesh Control config
+     */
+    MESH_CONTROL_CONFIG = 10;
   }
 
   /*
@@ -501,7 +506,67 @@ message AdminMessage {
      * Tell the node to reset into the OTA Loader
      */
     OTAEvent ota_request = 102;
+
+    /*
+     * Trigger a coding-rate sound-check cycle.
+     * The node will probe each LoRa CR (4/5, 4/6, 4/7, 4/8) by sending want_ack packets
+     * to the best-heard direct neighbor (or the specified target node num, 0 = auto-pick).
+     * Results are returned as a ClientNotification.
+     */
+    uint32 begin_sound_check = 103;
+
+    /*
+     * Approve a pending Mesh Control settings update that arrived while accept_policy = PROMPT.
+     * If true, apply the buffered settings; if false, discard them.
+     */
+    bool mesh_control_apply = 104;
+
+    /*
+     * Configure a specific sensor (e.g. SCD30, SCD4X, SEN5X calibration/mode settings).
+     */
+    SensorConfig sensor_config = 105;
   }
+}
+
+/*
+ * Per-sensor calibration / mode configuration, sent via AdminMessage.sensor_config.
+ */
+message SensorConfig {
+  /*
+   * SCD30 CO2 sensor configuration
+   */
+  message SCD30Config {
+    optional bool soft_reset = 1;
+    optional bool set_asc = 2;
+    optional uint32 set_target_co2_conc = 3;
+    optional float set_temperature = 4;
+    optional uint32 set_altitude = 5;
+    optional uint32 set_measurement_interval = 6;
+  }
+
+  /*
+   * SCD4X CO2 sensor configuration
+   */
+  message SCD4XConfig {
+    optional bool factory_reset = 1;
+    optional bool set_asc = 2;
+    optional uint32 set_target_co2_conc = 3;
+    optional float set_temperature = 4;
+    optional uint32 set_altitude = 5;
+    optional uint32 set_ambient_pressure = 6;
+    optional uint32 set_power_mode = 7;
+  }
+
+  /*
+   * SEN5X particulate / gas sensor configuration
+   */
+  message SEN5XConfig {
+    optional bool set_one_shot_mode = 1;
+  }
+
+  optional SCD30Config scd30_config = 1;
+  optional SCD4XConfig scd4x_config = 2;
+  optional SEN5XConfig sen5x_config = 3;
 }
 
 /*

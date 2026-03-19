@@ -1622,14 +1622,16 @@ message MeshPacket {
   bool pki_encrypted = 17;
 
   /*
-   * Last byte of the node number of the node that should be used as the next hop in routing.
+   * Full node number of the node that should be used as the next hop in routing.
    * Set by the firmware internally, clients are not supposed to set this.
    */
   uint32 next_hop = 18;
 
   /*
-   * Last byte of the node number of the node that will relay/relayed this packet.
-   * Set by the firmware internally, clients are not supposed to set this.
+   * Full node number of the node that will relay/relayed this packet.
+   * For broadcast packets: If set by the client, only the designated node will rebroadcast.
+   * If unset (0), any node can rebroadcast.
+   * For DM packets: The firmware sets this to the configured dm_relay_node preference.
    */
   uint32 relay_node = 19;
 
@@ -1658,10 +1660,10 @@ enum Constants {
 
   /*
    * From mesh.options
-   * note: this payload length is ONLY the bytes that are sent inside of the Data protobuf (excluding protobuf overhead). The 16 byte header is
+   * note: this payload length is ONLY the bytes that are sent inside of the Data protobuf (excluding protobuf overhead). The 24 byte header is
    * outside of this envelope
    */
-  DATA_PAYLOAD_LEN = 233;
+  DATA_PAYLOAD_LEN = 225;
 }
 
 /*

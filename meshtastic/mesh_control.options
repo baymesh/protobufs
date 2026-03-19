@@ -1,0 +1,10 @@
+# Options for mesh_control.proto nanopb code generation
+
+meshtastic.MeshControlPacket.mesh_name    max_size:32
+meshtastic.MeshControlPacket.version      max_size:8
+meshtastic.MeshControlPacket.hmac         max_size:16
+meshtastic.MeshControlPacket.controller_public_key max_size:32
+
+# proto3: true
+meshtastic.MeshControlPacket              proto3:true
+meshtastic.MeshControlSettings            proto3:true

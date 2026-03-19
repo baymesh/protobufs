@@ -143,6 +143,11 @@ enum PortNum {
   STORE_FORWARD_PLUSPLUS_APP = 35;
 
   /*
+   * Broadcasts a short status message for display in node lists.
+   */
+  NODE_STATUS_APP = 36;
+
+  /*
    * Provides a hardware serial interface to send and receive from the Meshtastic network.
    * Connect to the RX/TX pins of a device with 38400 8N1. Packets received from the Meshtastic
    * network is forwarded to the RX pin while sending a packet to TX will go out to the Mesh network.
@@ -231,6 +236,13 @@ enum PortNum {
    * ENCODING: CayenneLLP
    */
   CAYENNE_APP = 77;
+
+  /*
+   * Mesh Control: broadcast configuration updates signed by a trusted mesh administrator.
+   * Participating nodes verify the HMAC and apply settings according to their accept policy.
+   * ENCODING: Protobuf MeshControlPacket
+   */
+  MESH_CONTROL_APP = 78;
 
   /*
    * Private applications should use portnums >= 256.

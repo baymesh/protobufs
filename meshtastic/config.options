@@ -22,3 +22,5 @@
 *SecurityConfig.private_key max_size:32
 *SecurityConfig.admin_key max_size:32
 *SecurityConfig.admin_key max_count:3
+
+*MeshControlConfig.control_key max_size:32
